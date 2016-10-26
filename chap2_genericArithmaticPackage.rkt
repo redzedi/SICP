@@ -1,6 +1,8 @@
 #lang racket
 
-
+;(module genericArithmatic  racket
+(provide (all-defined-out))
+;(provide install-scheme-number-package)
 ;(load "chap2_tagBasedTypeSystem.rkt")
 ;commented for Exercise 2.86
 ;(define square sqr)
@@ -28,7 +30,7 @@
       (cdr datum)
       (cond ((number? datum) datum)
             ((null? datum) null)
-          (else (error "Bad tagged datum: CONTENTS" datum)))
+            (else (error "Bad tagged datum: CONTENTS" datum)))
       ))
 
 ;(define BASE-TYPE 'BASETYPE)
@@ -37,8 +39,10 @@
 
 (define (create-typeName-key typeTags)
   (define (create-string-key symbs)
+    ;(display "symbs  ")(display symbs)(newline)
     (apply string-append (map symbol->string symbs)))
-  (create-string-key (if (pair? typeTags) typeTags (list typeTags))))
+  ;(foldl (λ (s acc) (if (pair? s) (string-append "(" (create-string-key s) ")" acc) (string-append acc (symbol->string s)))) "" symbs))
+  (if (null? typeTags) "NULL" (create-string-key (if (pair? typeTags) typeTags  (list typeTags)))))
 
 (define (put opName argTypeTags opRef)
   (define (inner-set implMap)
@@ -153,19 +157,20 @@
 ;Exercise 2.84
 (define (apply-generic op . args)
   (define (dropIfNeeded prc argVals)
-    (let ((procRes (apply prc argVals))) (if (or (eq? 'project op) (eq? 'raise op) (eq? 'equ op) (eq? 'zero op)) procRes (drop procRes) )))
+    (let ((procRes (apply prc argVals))) (if (or (eq? 'add op) (eq? 'sub op) (eq? 'mul op) (eq? 'div op) (eq? 'square op)) (drop procRes) procRes )))
   (let ((type-tags (map type-tag args)))
+    ;(display "**** apply-generic ops "  )(display op)(display " type-tags ")(display type-tags)(display " args ")(display args)(newline)
     (let ((proc (get op type-tags)))
       
       (if (not (null? proc))
-         ; (drop (apply proc (map contents args)))
+          ; (drop (apply proc (map contents args)))
           ; (apply proc (map contents args))
           (dropIfNeeded proc (map contents args))
-        
+          
           (let (
                 (normalizedArgs (map (λ (tpN) (raise-n-times (car tpN) (cdr tpN) ) ) (my-zip args  (map (λ (diffs) (foldl (λ (x acc) (if (> x acc) x acc)) -99999 diffs)) (map (λ (t) (map (λ (t1) (compare-types t t1)) type-tags) ) type-tags)))))
                 )
-           ; (newline) (display "normalizedArgs --> ") (display normalizedArgs) (newline)
+            ; (newline) (display "normalizedArgs --> ") (display normalizedArgs) (newline)
             
             (let ((newProc (get op (map type-tag normalizedArgs)))) (if (not (null? newProc))
                                                                         ;(drop (apply newProc (map contents normalizedArgs)))
@@ -217,10 +222,10 @@
 (define (project x) (apply-generic 'project x))
 
 (define (drop x)
-  (if (not (pair? x))
-      x
-      (let ((nextX ((get 'project (type-tag x)) (contents x))))
-     (if  (and (not (null? nextX)) (equ? x ((get 'raise (type-tag nextX)) (contents nextX)))) (drop nextX) x))))
+  (cond ((not (pair? x)) x)
+        ((list? x) (map drop x))
+        (else (let ((nextX ((get 'project (type-tag x)) (contents x))))
+                (if  (and (not (null? nextX)) (equ? x ((get 'raise (type-tag nextX)) (contents nextX)))) (drop nextX) x)))))
 
 
 
@@ -232,6 +237,20 @@
 
 (define (my-cos x) (apply-generic 'cos x ))
 
+(define (negate x) (apply-generic 'negate x ))
+
+(define (greatest-common-divisor x y) (apply-generic 'greatest-common-divisor x y))
+
+ (define (my-exp b n)
+   (define (exp-iter currN res)
+     (if (zero? currN)
+         res
+         (exp-iter ((if (> currN 0) sub add) currN 1) ((if (> currN 0) mul div ) res b) )
+         ))
+   (exp-iter n 1))
+
+(define (reduce x y) (apply-generic 'reduce x y))
+
 ;schema number package
 
 (define (install-scheme-number-package)
@@ -239,6 +258,16 @@
   (install-rational-package)
   (hash-ref! type-meta-map 'scheme-number 'rational)
   (define (tag x) (attach-tag 'scheme-number x))
+  
+  (define (my-gcd a b)
+    (if (= b 0)
+        a
+        (my-gcd b (remainder a b))))
+
+  (define (reduce-integers n d)
+(let ((g (gcd n d)))
+(list (/ n g) (/ d g))))
+  
   (put 'add '(scheme-number scheme-number)
        (lambda (x y) (tag (+ x y))))
   (put 'sub '(scheme-number scheme-number)
@@ -265,17 +294,23 @@
                 scheme-number->complex)
   
   (put 'raise 'scheme-number (λ (x) ((get 'make 'rational) x 1)))
-
+  
   ;bottom of type tower
   (put 'project 'scheme-number (λ (x) (display "project scheme-number")  null))
-
+  
   (put 'square 'scheme-number (λ (x) (sqr x)))
-
+  
   (put 'atan '(scheme-number scheme-number) (λ (x y) (atan x y)))
-
+  
   (put 'sin 'scheme-number (λ (x ) (sin x)))
-
+  
   (put 'cos 'scheme-number (λ (x ) (cos x)))
+  
+  (put 'negate 'scheme-number (λ (x) (tag (* -1 x))))
+
+  (put 'greatest-common-divisor '(scheme-number scheme-number) my-gcd)
+
+  (put 'reduce '(scheme-number scheme-number) reduce-integers)
   
   'done)
 
@@ -296,29 +331,32 @@
   (define (numer x) (car x))
   (define (denom x) (cdr x))
   (define (make-rat n d)
-    (let ((g (gcd n d)))
-      (cons (/ n g) (/ d g))))
-
+    ;(let ((g (greatest-common-divisor n d)))
+    ;  (cons (div n g) (div d g)))
+    (let ((redND (reduce n d)))
+      (cons (car redND) (cadr redND)))
+    )
+  
   (define (make-rat-from-1 n)
     (make-rat (inexact->exact (numerator n)) (inexact->exact (denominator n)))
     )
   
   (define (add-rat x y)
-    (make-rat (+ (* (numer x) (denom y))
-                 (* (numer y) (denom x)))
-              (* (denom x) (denom y))))
+    (make-rat (add (mul (numer x) (denom y))
+                   (mul (numer y) (denom x)))
+              (mul (denom x) (denom y))))
   (define (sub-rat x y)
-    (make-rat (- (* (numer x) (denom y))
-                 (* (numer y) (denom x)))
-              (* (denom x) (denom y))))
+    (make-rat (sub (mul (numer x) (denom y))
+                   (mul (numer y) (denom x)))
+              (mul (denom x) (denom y))))
   (define (mul-rat x y)
-    (make-rat (* (numer x) (numer y))
-              (* (denom x) (denom y))))
+    (make-rat (mul (numer x) (numer y))
+              (mul (denom x) (denom y))))
   (define (div-rat x y)
-    (make-rat (* (numer x) (denom y))
-              (* (denom x) (numer y))))
-
-  (define (val-rat x) (/ (numer x) (denom x)))
+    (make-rat (mul (numer x) (denom y))
+              (mul (denom x) (numer y))))
+  
+  (define (val-rat x) (div (numer x) (denom x)))
   ;; interface to rest of the system
   (define (tag x) (attach-tag 'rational x))
   (put 'add '(rational rational)
@@ -333,10 +371,10 @@
   (put 'equ '(rational rational)
        (lambda (x y) (and (= (numer x) (numer y)) (= (denom x) (denom y)))))
   
-  (put 'zero 'rational (λ (x) (= 0 (numer x) )))
+  (put 'zero 'rational (λ (x) (zero? (numer x) )))
   
   (put 'raise 'rational (λ (x) ((get 'make-from-real-imag 'complex) (val-rat x) 0)))
-
+  
   (put 'project 'rational (λ (x) (make-scheme-number (numer x))))
   
   (put 'make 'rational
@@ -346,15 +384,17 @@
                 (λ (x)
                   ;(newline) (display "rational->complex  ")(display (numer x))
                   ((get 'make-from-real-imag 'complex) (val-rat (contents x)) 0)) )
-
+  
   ;TODO - these functions should return rational numbers rather than racket primitive numbers
- ; (put 'square 'rational (λ (x)  (tag (make-rat-from-1 (sqr (val-rat x))))))
-   (put 'square 'rational (λ (x)   (sqr (val-rat x))))
+  ; (put 'square 'rational (λ (x)  (tag (make-rat-from-1 (sqr (val-rat x))))))
+  (put 'square 'rational (λ (x)   (sqr (val-rat x))))
   (put 'atan '(rational rational) (λ (x y) (atan (val-rat x) (val-rat y))))
-
+  
   (put 'sin 'rational (λ (x ) (sin (val-rat x))))
-
+  
   (put 'cos 'rational (λ (x ) (cos (val-rat x))))
+  
+  (put 'negate 'rational (λ (x) (tag (make-rat (mul -1 (numer x)) (denom x) ))))
   'done)
 
 ;rational number constructor
@@ -424,8 +464,10 @@
   (put 'angle '(complex) angle)
   
   (put 'raise 'complex (λ (x) (tag x)))
-
+  
   (put 'project 'complex (λ (x) (make-rational (real-part x) 1)))
+  
+  (put 'negate 'complex (λ (x) (tag (make-from-real-imag (mul -1 (real-part x)) (mul -1 (imag-part x))) )))
   'done)
 
 ;complex number constructors
@@ -444,7 +486,7 @@
   (define (make-from-real-imag x y) (cons x y))
   (define (magnitude z)
     (sqrt (add (square (real-part z))
-             (square (imag-part z)))))
+               (square (imag-part z)))))
   (define (angle z)
     (my-atan  (imag-part z) (real-part z)))
   (define (make-from-mag-ang r a)
@@ -485,135 +527,4 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
-;test
-(install-scheme-number-package)
-(install-rational-package)
-(install-rectangular-package)
-(install-polar-package)
-(install-complex-package)
-
-;Exercise 2.77
-
-;3+4i
-(define z1 (make-complex-from-real-imag 3 4))
-z1
-(magnitude z1)
-
-(angle z1)
-
-;Exercise 2.78
-
-(add (make-scheme-number 3) (make-scheme-number 4))
-
-(add 3 4)
-
-;Exercise 2.79
-
-(equ? 4 4)
-
-(equ? 4 41)
-
-(equ? (make-rational 1 2) (make-rational 2 4))
-(define z1-polar (make-complex-from-mag-ang (magnitude z1) (angle z1)))
-(real-part z1-polar)
-(imag-part z1-polar)
-(equ? z1 z1-polar)
-
-;Exercise 2.80
-
-(zero? 0)
-
-(zero? (make-rational 0 2))
-
-(zero? (make-complex-from-real-imag 0 0))
-
-(zero? z1)
-
-(add z1 5)
-
-(add 5 z1)
-
-(multi-add 1 2 3 4 5 6)
-
-(define z2 (make-complex-from-real-imag 5 6))
-
-(define z3 (make-complex-from-real-imag 7 8))
-
-(multi-add z1 z2 z3)
-
-(multi-add z1 z2 3 (make-rational 4 2))
-
-(multi-add 3 z1 z2 3 (make-rational 4 2))
-
-;Exercise 2.83 raise function integer -->  rational --> real --> complex
-
-(raise (raise (raise 5)))
-
-;(multi-add z1 3 (make-rational 7 3))
-
-;in this exercise the type tower is
-; integer -->  rational -->  complex
-
-(compare-types 'scheme-number 'rational)
-
-(compare-types 'complex 'scheme-number )
-
-(compare-types 'scheme-number 'scheme-number)
-
-(add (make-rational 1 1) (make-rational 3 2))
-
-(add 1 (make-rational 3 2))
-
-(project z1)
-
-(raise (project z1))
-
-(project (project z1))
-
-(equ? z1 (raise (project z1)))
-
-(define z4 (make-complex-from-real-imag 3 0))
-
-(define z5 (make-complex-from-mag-ang 3 0))
-
-(raise (project z4))
-
-(raise (project z5))
-
-(equ? z4 (raise (project z4)))
-
-(equ? z5 (raise (project z5)))
-
-(drop z5)
-
-;Exercise 2.85 - expect result 1
-(add (make-rational 1 2) (make-rational 1 2))
-
-(define z6 (make-complex-from-real-imag (make-rational 3 2) 2))
-
-(magnitude z6)
-
-(angle z6)
-
-(define z7 (make-complex-from-mag-ang (make-rational 4776742944770517 1125899906842624) 0.7854))
-
-z7
-(real-part z7)
-
-(imag-part z7)
-
-(define z8 (make-complex-from-mag-ang (make-rational 4776742944770517 1125899906842624) (make-rational 7074254294673575 9007199254740992 )))
-
-z8
-(real-part z8)
-
-(imag-part z8)
-
-(define z9 (make-complex-from-real-imag (make-rational 3 2) (make-rational 3 2)))
-
-z9
-    
-(magnitude z9)
-
-(angle z9)
+;)
