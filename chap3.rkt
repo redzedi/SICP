@@ -349,39 +349,39 @@ rr1
 (define (make-queue1)
   (let ((front-ptr '() )
         (rear-ptr '() ))
-
+    
     (define (set-front-ptr!  item)
-  (set! front-ptr item))
-(define (set-rear-ptr!  item)
-  (set! rear-ptr item))
-
-(define (empty-queue?)
-  (null? front-ptr))
-
-
-
-(define (front-queue)
-  (if (empty-queue? )
-      (error "FRONT called with an empty queue" )
-      front-ptr))
-
-(define (insert-queue!  item)
-  (let ((new-pair (mcons item '())))
-    (cond ((empty-queue? )
-           (set-front-ptr!  new-pair)
-           (set-rear-ptr!  new-pair)
-           front-ptr)
-          (else
-           (set-mcdr! rear-ptr  new-pair)
-           (set-rear-ptr!  new-pair)
-           front-ptr))))
-
-
-(define (delete-queue!)
-  (cond ((empty-queue? )
-         (error "DELETE! called with an empty queue"))
-        (else (set-front-ptr!  (mcdr front-ptr ))
-              front-ptr)))
+      (set! front-ptr item))
+    (define (set-rear-ptr!  item)
+      (set! rear-ptr item))
+    
+    (define (empty-queue?)
+      (null? front-ptr))
+    
+    
+    
+    (define (front-queue)
+      (if (empty-queue? )
+          (error "FRONT called with an empty queue" )
+          front-ptr))
+    
+    (define (insert-queue!  item)
+      (let ((new-pair (mcons item '())))
+        (cond ((empty-queue? )
+               (set-front-ptr!  new-pair)
+               (set-rear-ptr!  new-pair)
+               front-ptr)
+              (else
+               (set-mcdr! rear-ptr  new-pair)
+               (set-rear-ptr!  new-pair)
+               front-ptr))))
+    
+    
+    (define (delete-queue!)
+      (cond ((empty-queue? )
+             (error "DELETE! called with an empty queue"))
+            (else (set-front-ptr!  (mcdr front-ptr ))
+                  front-ptr)))
     
     (define (dispatch m)
       (cond
@@ -435,7 +435,7 @@ rr1
            (set-dq-rear-ptr! queue new-pair)
            queue)
           
-           (else
+          (else
            (set-mcdr! (mcdr (dq-rear-ptr queue)) new-pair)
            (set-mcar! (mcdr new-pair) (dq-rear-ptr queue))
            (set-dq-rear-ptr! queue new-pair)
@@ -460,8 +460,8 @@ rr1
         
         (else
          (set-dq-front-ptr! queue (mcdr (mcdr (dq-front-ptr queue))))
-          (set-mcar!  (mcdr (dq-front-ptr queue))  '())    
-              queue)))
+         (set-mcar!  (mcdr (dq-front-ptr queue))  '())    
+         queue)))
 
 (define (rear-delete-dequeue! queue)
   (cond ((empty-queue? queue)
@@ -470,7 +470,7 @@ rr1
         (else
          (set-dq-rear-ptr! queue (mcar (mcdr (dq-rear-ptr queue))))
          (set-mcdr!  (mcdr (dq-rear-ptr queue))  '())
-              queue)))
+         queue)))
 
 (define (print-deque dq)
   (if (null? dq) (newline)
@@ -480,12 +480,287 @@ rr1
 (print-deque (dq-front-ptr q3))
 (rear-insert-dequeue! q3 'a)
 (print-deque (dq-front-ptr q3))
-  (front-insert-dequeue! q3 'b)
+(front-insert-dequeue! q3 'b)
 (print-deque (dq-front-ptr q3))
-  (front-delete-dequeue! q3 )
+(front-delete-dequeue! q3 )
 (print-deque (dq-front-ptr q3))
-  (front-insert-dequeue! q3 'c)
+(front-insert-dequeue! q3 'c)
 (print-deque (dq-front-ptr q3))
-  (rear-delete-dequeue! q3 )
+(rear-delete-dequeue! q3 )
 (print-deque (dq-front-ptr q3))
+
+; Table implementation
+
+;2D table
+
+
+;Exercise 3.24
+
+(define (make-table same-key?)
+  
+  (define (my-assoc k kvs)
+    (cond
+      ((null? kvs) #f)
+      ( (same-key? k (mcar (mcar kvs))) (mcar kvs) )
+      (else (my-assoc k (mcdr kvs))) ))
+  
+  (let ((local-table (mcons '*table* '())))
+    (define (lookup key-1 key-2)
+      (let ((subtable
+             (my-assoc key-1 (mcdr local-table))))
+        (if subtable
+            (let ((record
+                   (my-assoc key-2 (mcdr subtable))))
+              (if record (mcdr record) false))
+            false)))
+    (define (insert! key-1 key-2 value)
+      (let ((subtable
+             (my-assoc key-1 (mcdr local-table))))
+        (if subtable
+            (let ((record
+                   (my-assoc key-2 (mcdr subtable))))
+              (if record
+                  (set-mcdr! record value)
+                  (set-mcdr! subtable
+                             (mcons (mcons key-2 value)
+                                    (mcdr subtable)))))
+            (set-mcdr! local-table
+                       (mcons (mcons key-1 (mcons (mcons key-2 value) '()))
+                              (mcdr local-table)))))
+      'ok)
+    (define (dispatch m)
+      (cond ((eq? m 'lookup-proc) lookup)
+            ((eq? m 'insert-proc!) insert!)
+            (else (error "Unknown operation: TABLE" m))))
+    dispatch))
+
+; (assoc 'bb1 (cdr (assoc 'b (cdr (list 'TT (cons 'a (list (cons 'aa1 1) (cons 'aa2 2))) (cons 'b (list (cons 'bb1 1) (cons 'bb2 2))))))))
+
+(define t1 (make-table eq?))
+((t1 'lookup-proc) 'a 'aa2)
+((t1 'insert-proc!) 'a 'aa2 2)
+((t1 'insert-proc!) 'a 'aa1 1)
+((t1 'insert-proc!) 'b 'bb1 1)
+((t1 'insert-proc!) 'b 'bb1 4)
+
+((t1 'lookup-proc) 'a 'aa2)
+((t1 'lookup-proc) 'b 'bb1)
+
+(define t2 (make-table (λ (x1 x2) (< (abs (- x1 x2)) 1))))
+
+((t2 'lookup-proc) 1 1)
+((t2 'insert-proc!) 1 1.1 'a)
+((t2 'insert-proc!) 1 2.1 'b)
+((t2 'insert-proc!) 1 3.1 'c)
+((t2 'lookup-proc) 1 1)
+
+;Exercise 3.25 - n - dimensional table
+
+(define (make-nd-table same-key?)
+  
+  (define (my-assoc k kvs)
+    ;(display "my-assoc ")(display k)(display "  ")(display kvs)(display " ---!! " )(display (and (not (null? kvs))(mcar (mcar kvs))))(newline)
+    (cond
+      ((null? kvs) #f)
+      ( (same-key? k  (mcar (mcar kvs))) (mcar kvs) )
+      (else (my-assoc k (mcdr kvs))) ))
+  
+  (define (lookup-inner  keys resTable )
+    ; (display "subtable ")(display resTable)(newline)
+    (if (null? keys)
+        ;( (null? resTable) (mcons (cons currK keys) origTable))
+        
+        (mcons keys resTable)
+        (let ((searchRes (my-assoc (car keys) (mcdr resTable))))
+          (if searchRes (lookup-inner (cdr keys) searchRes) (mcons keys resTable)))
+        ;(else (lookup-inner (car keys) (cdr keys) resTable (my-assoc (car keys) (mcdr resTable))))
+        ))
+  
+  (let ((local-table (mcons '*table* '())))
+    
+    (define (lookup klst)
+      (let ((res-pair (lookup-inner  klst  local-table )))
+        ; (display "res-pair ")(display res-pair)(newline)
+        (and (null? (mcar res-pair)) (not (null? (mcdr res-pair)))   (mcdr (mcdr res-pair))))
+      )
+    
+    
+    (define (insert! keys value)
+      ;insert in the data -structure
+      (define (inner-insert ks)
+        (if (null? ks)
+            value
+            (mcons (mcons (car ks) (inner-insert (cdr ks))) '()))) 
+      ;
+      
+      (let ((currMatch (lookup-inner  keys  local-table )))
+        ;(display "currMatch ")(display currMatch)(newline)
+        (if (null? (mcar currMatch))
+            (set-mcdr! (mcdr currMatch) value)
+            (let ((newTail (inner-insert (mcar currMatch)))) ; newTail is create new subtree
+              ;insert  subtree into older tree
+              (set-mcdr! newTail  (mcdr (mcdr currMatch)))
+              (set-mcdr! (mcdr currMatch) newTail))
+            ))
+      'ok)
+    
+    (define (dispatch m)
+      (cond ((eq? m 'lookup-proc) lookup)
+            ((eq? m 'insert-proc!) insert!)
+            (else (error "Unknown operation: TABLE" m))))
+    dispatch))
+
+(define t3 (make-nd-table eq?))
+
+((t3 'insert-proc!) '(1 2 1) 'a )
+((t3 'insert-proc!) '(1 2 2) 'b )
+((t3 'insert-proc!) '(1 2 3) 'c )
+((t3 'insert-proc!) '(1 2 3) 'd )
+((t3 'insert-proc!) '(1 1) 'x )
+((t3 'insert-proc!) '(1 3) 'y )
+((t3 'insert-proc!) '(2) 'aa )
+
+(eq? ((t3 'lookup-proc) '(1 2 1)) 'a )
+(eq? ((t3 'lookup-proc) '(1 2 2)) 'b )
+(eq? ((t3 'lookup-proc) '(1 2 3)) 'd )
+(eq? ((t3 'lookup-proc) '(1 1)) 'x )
+(eq? ((t3 'lookup-proc) '(1 3)) 'y )
+(eq? ((t3 'lookup-proc) '(2)) 'aa )
+
+;Exercise 3.26 - tree based table implementation
+
+(require "avlTree.rkt")
+
+(define (make-nd-tree-table same-key?)
+  
+  (define (my-assoc k kvs)
+    ;(display "my-assoc ")(display k)(display "  ")(display kvs)(display " ---!! " )(display (and (not (null? kvs))(mcar (mcar kvs))))(newline)
+    (cond
+      ((null? kvs) #f)
+      ( (same-key? k  (mcar (mcar kvs))) (mcar kvs) )
+      (else (my-assoc k (mcdr kvs))) ))
+  
+  ; '(remaining-keys  this-table value)
+  (define (lookup-inner  keys  resTable )
+    (define (lookup-inner-inner  keys parentTable resTable )
+      ; (display "restable ")(display resTable)(display " ")(display keys)(display " | ")(newline)
+      (cond ((null? keys) (list keys  parentTable resTable))
+           ((not (tree? resTable))  (list keys   parentTable resTable))
+          (else (let ((searchRes   ( ( (cdr resTable) 'lookup) (car keys) )))
+            ; (display "searchRes ")(display searchRes)(display " keys ")(display keys)(display " | ")(newline)
+            (if searchRes (lookup-inner-inner (cdr keys) resTable  searchRes ) (list keys   resTable null))))
+          ;(else (lookup-inner (car keys) (cdr keys) resTable (my-assoc (car keys) (mcdr resTable))))
+          ))
+    (lookup-inner-inner  keys resTable resTable ))
+  
+  (let ((local-table (mcons '*table* (make-tree -))))
+    
+    (define (lookup klst)
+      (let ((res-pair (lookup-inner  klst  (mcdr local-table) )))
+         ;(display "res-pair ")(display res-pair)(newline)
+        (and (null? (car res-pair))    (caddr res-pair)))
+      )
+    
+    
+    
+    (define (insert! keys value)
+      ;insert in the data -structure
+      (define (insert-inner! trE keys value)
+        (if (null? keys)
+            value
+            (( (cdr trE) 'insert) (car keys) (insert-inner! (make-tree -) (cdr keys) value)))) 
+      ;
+      
+      (let ((currMatch (lookup-inner  keys  (mcdr local-table ))))
+        ;(display "currMatch ")(display currMatch)(newline)
+        (if (null? (car currMatch))
+            ( ( (cdr (cadr currMatch)) 'insert) (last keys) value)
+            (insert-inner! (cadr currMatch) (car currMatch) value))
+;            (let ((newTail (insert-inner! (cadr currMatch) (car currMatch) value))) ; newTail is create new subtree
+;              ;insert  subtree into older tree
+;
+;              ;(( (cdr (cadr currMatch)) 'insert)
+;               ; (caar currMatch)
+;              
+;               ;(let ((key-diff (car (call-with-values (λ () (drop-common-prefix  (reverse keys) (reverse (car currMatch)))) list))))
+;                ; (if (null?  key-diff) (car keys) (car key-diff)))
+;               
+;              ; newTail)
+;              'ok1
+;              ;(set-mcdr! (mcdr currMatch) newTail))
+;              ))
+        'ok))
+    
+    (define (dispatch m)
+      (cond ((eq? m 'lookup-proc) lookup)
+            ((eq? m 'insert-proc!) insert!)
+            (else (error "Unknown operation: TABLE" m))))
+    dispatch))
+
+
+(define t4 (make-nd-tree-table eq?))
+
+((t4 'insert-proc!) '(1 2 1) 'a )
+((t4 'insert-proc!) '(1 2 2) 'b )
+((t4 'insert-proc!) '(1 2 3) 'c )
+((t4 'insert-proc!) '(1 2 3) 'd )
+((t4 'insert-proc!) '(1 1) 'x )
+((t4 'insert-proc!) '(1 3) 'y )
+((t4 'insert-proc!) '(2) 'aa )
+
+;(display "key --> ")(display '(1 2 1)) (display " -- ")
+;((t4 'lookup-proc) '(1 2 1)) (newline)
+(eq? ((t4 'lookup-proc) '(1 2 1)) 'a )
+
+;(display "key --> ")(display '(1 2 2)) (display " -- ")
+;((t4 'lookup-proc) '(1 2 2)) (newline)
+(eq? ((t4 'lookup-proc) '(1 2 2)) 'b )
+
+;(display "key --> ")(display '(1 2 3)) (display " -- ")
+;((t4 'lookup-proc) '(1 2 3)) (newline)
+(eq? ((t4 'lookup-proc) '(1 2 3)) 'd )
+
+;(display "key --> ")(display '(1 1)) (display " -- ")
+;((t4 'lookup-proc) '(1 1)) (newline)
+(eq? ((t4 'lookup-proc) '(1 1)) 'x )
+;
+;(display "key --> ")(display '(1 3)) (display " -- ")
+;((t4 'lookup-proc) '(1 3)) (newline)
+(eq? ((t4 'lookup-proc) '(1 3)) 'y )
+
+;(display "key --> ")(display '(2)) (display " -- ")
+;((t4 'lookup-proc) '(2)) (newline)
+(eq? ((t4 'lookup-proc) '(2)) 'aa )
+
+((t4 'lookup-proc) '(1 2 4))
+
+;Exercise 3.27
+
+(define (fib n)
+  (cond ((= n 0) 0)
+        ((= n 1) 1)
+        (else (+ (fib (- n 1)) (fib (- n 2))))))
+
+
+(define (memoize f)
+  (let ((table (make-nd-tree-table eq?)))
+    (lambda (x)
+      (let ((previously-computed-result
+             ( (table 'lookup-proc) (list x) )))
+        (or previously-computed-result
+            (let ((result (f x)))
+              ( (table 'insert-proc!) (list x) result )
+              result))))))
+
+
+(define memo-fib
+  (memoize
+   (lambda (n)
+     (cond ((= n 0) 0)
+           ((= n 1) 1)
+           (else (+ (memo-fib (- n 1))
+                    (memo-fib (- n 2))))))))
+
+
+(memo-fib 10)
 
