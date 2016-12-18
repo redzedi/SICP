@@ -187,7 +187,9 @@
       (or (< (+ (sqr (- (car rp) (car cntr))) (sqr (- (cdr rp) (cdr cntr)))) (sqr r))
           (= (+ (sqr (- (car rp) (car cntr))) (sqr (- (cdr rp) (cdr cntr)))) (sqr r))) )))
 
+(display "integral estimate **   ")
 (estimate-integrals (create-circle-pred (cons 5 7) 1 4 6 6 8) 4 6 6 8 3000000)
+(newline)
 
 ;Exercise 3.6
 ;how to perist state between method calls
@@ -207,9 +209,10 @@ r1
 ((rand-gen 'reset) random-init)
 (define rr1 (rand-gen 'generate))
 rr1
+(display "Exercise 3.6 ***   ")
 
 (= r1 rr1)
-
+(newline)
 ;Exercise 3.17
 
 (define (mpairEq? p1 p2)
@@ -292,46 +295,7 @@ rr1
 
 (has-cycle1 (make-cycle mlst2))
 
-;Queue implementation
-
-(define (front-ptr queue) (mcar queue))
-(define (rear-ptr queue) (mcdr queue))
-(define (set-front-ptr! queue item)
-  (set-mcar! queue item))
-(define (set-rear-ptr! queue item)
-  (set-mcdr! queue item))
-
-(define (empty-queue? queue)
-  (null? (front-ptr queue)))
-
-(define (make-queue) (mcons '() '()))
-
-(define (front-queue queue)
-  (if (empty-queue? queue)
-      (error "FRONT called with an empty queue" queue)
-      (car (front-ptr queue))))
-
-(define (insert-queue! queue item)
-  (let ((new-pair (mcons item '())))
-    (cond ((empty-queue? queue)
-           (set-front-ptr! queue new-pair)
-           (set-rear-ptr! queue new-pair)
-           queue)
-          (else
-           (set-mcdr! (rear-ptr queue) new-pair)
-           (set-rear-ptr! queue new-pair)
-           queue))))
-
-
-(define (delete-queue! queue)
-  (cond ((empty-queue? queue)
-         (error "DELETE! called with an empty queue" queue))
-        (else (set-front-ptr! queue (mcdr (front-ptr queue)))
-              queue)))
-
-;Exercise 3.21
-
-(define (print-queue q) (display (front-ptr q))(newline))
+(require "chap3_Queue.rkt" )
 
 (define q1 (make-queue))
 (insert-queue! q1 'a)
